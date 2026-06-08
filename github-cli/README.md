@@ -167,7 +167,7 @@ Then run the scripted demo for your platform:
 demonator -c ghcli-macos-demo.yml
 
 # Linux
-demo ghcli-linux-demo.yml
+demonator -c ghcli-linux-demo.yml
 ```
 
 The Linux scripted demo exports `GH_TOKEN="$(gh auth token)"` for the
