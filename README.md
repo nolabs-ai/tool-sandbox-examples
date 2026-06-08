@@ -1,7 +1,7 @@
 # nono Tool-Sandbox Demo Package
 
 This package contains practical demos for nono command policy, brokered
-credentials, endpoint policy, and approval webhooks.
+credentials, endpoint policy, local approval policy, and approval webhooks.
 
 The demos are intentionally close to real tool usage. They run the actual
 `gh` and `kubectl` CLIs through nono, use local nono profiles, and keep real
@@ -10,7 +10,7 @@ credentials outside the sandboxed child processes.
 ## Contents
 
 ```text
-approval-webhook-demo.py       shared local approval webhook used by both demos
+approval-webhook-demo.py       shared local approval webhook used by Kubernetes
 github-cli/                    GitHub CLI credential and policy demo
 kubernetes/                    kubectl credential and policy demo
 ```
@@ -72,7 +72,7 @@ The GitHub CLI demo shows:
 
 - phantom `GH_TOKEN` delivery to sandboxed `gh`
 - real GitHub token loading by the parent nono proxy
-- command approval through `approval-webhook-demo.py`
+- command approval through nono's local terminal approval policy
 - endpoint approval for selected GitHub API routes
 - invocation and L7 denial for issue comments and mutations
 
@@ -119,12 +119,13 @@ Then amend or create a cleanup commit.
 
 ## Approval Webhook
 
-`approval-webhook-demo.py` is a small local webhook used by both demos. It
-receives nono approval requests and grants only the command, caller, route, and
-argument prefixes configured at startup.
+`approval-webhook-demo.py` is a small local webhook used by the Kubernetes demo.
+It receives nono approval requests and grants only the command, caller, route,
+and argument prefixes configured at startup.
 
-The per-demo README files show the exact command to run. Keep the webhook
-running in a separate terminal while executing commands that require approval.
+The Kubernetes README shows the exact command to run. Keep the webhook running
+in a separate terminal while executing Kubernetes commands that require
+approval.
 
 ## Safety Notes
 

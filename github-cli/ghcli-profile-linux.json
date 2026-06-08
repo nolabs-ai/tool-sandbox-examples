@@ -82,14 +82,13 @@
     "allow_writable_executables": false,
     "entrypoint": null,
     "approval_backends": {
-      "local-webhook": {
-        "type": "webhook",
-        "url": "http://127.0.0.1:8765/approve",
+      "local-policy": {
+        "type": "terminal",
         "timeout_secs": 5
       }
     },
     "approval_defaults": {
-      "backend": "local-webhook",
+      "backend": "local-policy",
       "timeout_secs": 5
     },
     "credentials": {
@@ -153,7 +152,7 @@
                       {
                         "method": "GET",
                         "path": "/rate_limit",
-                        "backend": "local-webhook",
+                        "backend": "local-policy",
                         "reason": "GitHub rate-limit inspection requires approval in this demo"
                       }
                     ],
@@ -285,7 +284,7 @@
                       "token"
                     ]
                   },
-                  "backend": "local-webhook",
+                  "backend": "local-policy",
                   "reason": "GitHub phantom-token inspection requires approval in this demo"
                 }
               ],

@@ -10,8 +10,7 @@ credential upstream to `https://api.github.com`.
 - `gh issue view` and `gh issue list` are allowed.
 - `gh api` reads are allowed only when the L7 endpoint policy allows the API
   path.
-- selected command and endpoint operations can require approval from a local
-  approval backend.
+- selected command and endpoint operations can require local terminal approval.
 - issue comments, issue creation, issue closure, release upload, and destructive
   API calls are denied.
 - wrapped attempts such as `sh -c 'gh issue comment ...'` are denied because
@@ -95,33 +94,26 @@ If nono reports that the keyring entry is missing, the common causes are:
 Use `env://GH_TOKEN` as the fallback when the host intentionally has no desktop
 keyring.
 
-## Approval Backend
+## Local Approval Policy
 
-The profiles use the package root `approval-webhook-demo.py` as a local
-approval backend at:
+The profiles use nono's built-in terminal approval backend:
 
-```text
-http://127.0.0.1:8765/approve
+```json
+"approval_backends": {
+  "local-policy": {
+    "type": "terminal",
+    "timeout_secs": 5
+  }
+}
 ```
 
-Start it in a second terminal from this directory:
-
-```bash
-python3 ../approval-webhook-demo.py \
-  --allowed-command gh \
-  --allowed-caller session \
-  --allowed-endpoint-route github-api \
-  --allowed-args-prefix auth token \
-  --default-decision grant
-```
-
-This approves two demo cases:
+This asks for local approval in two demo cases:
 
 - command approval for `gh auth token`
 - endpoint approval for `GET /rate_limit` on the `github-api` route
 
-The webhook is intentionally narrow. It does not approve issue comments,
-creates, closes, release uploads, or destructive GitHub API methods.
+Issue comments, creates, closes, release uploads, and destructive GitHub API
+methods are denied by policy rather than sent to approval.
 
 ## Profiles
 
@@ -149,19 +141,7 @@ You will need demonator to run the scripted demos. Install it with:
 cargo install demonator
 ```
 
-Start the approval backend in a second terminal before running commands that
-use approval rules:
-
-```bash
-python3 ../approval-webhook-demo.py \
-  --allowed-command gh \
-  --allowed-caller session \
-  --allowed-endpoint-route github-api \
-  --allowed-args-prefix auth token \
-  --default-decision grant
-```
-
-Then run the scripted demo for your platform:
+Run the scripted demo for your platform:
 
 ```bash
 # macOS
@@ -183,18 +163,6 @@ Set the profile for your platform:
 export GH_PROFILE=./ghcli-profile-macos.json
 # or:
 export GH_PROFILE=./ghcli-profile-linux.json
-```
-
-Start the approval backend in a second terminal before running commands that
-use approval rules:
-
-```bash
-python3 ../approval-webhook-demo.py \
-  --allowed-command gh \
-  --allowed-caller session \
-  --allowed-endpoint-route github-api \
-  --allowed-args-prefix auth token \
-  --default-decision grant
 ```
 
 Run a command that requires command approval and shows that sandboxed `gh`
