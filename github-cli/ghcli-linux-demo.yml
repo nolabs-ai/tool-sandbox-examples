@@ -1,0 +1,66 @@
+speed: 80
+delay: 50
+clear: true
+show_exit_status: false
+
+setup:
+  - export GH_PROFILE=./ghcli-profile-linux.json
+  - export GH_TOKEN="$(gh auth token)"
+  - python3 -u approval-webhook-demo.py --allowed-command gh --allowed-caller session --allowed-endpoint-route github-api --allowed-args-prefix auth token --default-decision grant > /tmp/nono-gh-approval.log 2>&1 &
+  - export NONO_GH_APPROVAL_PID=$!
+
+steps:
+  - pause
+  - text: >-
+      jq '{approval_backends: .command_policies.approval_backends, credential: .command_policies.credentials["github-api"].credential_key}' "$GH_PROFILE"
+  - comment: ""
+
+  - pause
+  - text: >-
+      jq '{command_approve: .command_policies.commands.gh.from.session.invocation_policy.approve, endpoint_approve: .command_policies.commands.gh.from.session.sandbox.credentials[0].endpoint_policy.approve}' "$GH_PROFILE"
+  - comment: ""
+
+  - pause
+  - text: >-
+      nono run -s --no-audit --allow-cwd --profile "$GH_PROFILE" -- gh auth token
+  - comment: ""
+
+  - pause
+  - text: >-
+      nono run -s --no-audit --allow-cwd --profile "$GH_PROFILE" -- gh api rate_limit | jq '{core: .resources.core}'
+  - comment: ""
+
+  - pause
+  - text: >-
+      tail -n 80 /tmp/nono-gh-approval.log
+  - comment: ""
+
+  - pause
+  - text: >-
+      nono run -s --no-audit --allow-cwd --profile "$GH_PROFILE" -- gh issue view 1052 --repo always-further/nono --json title,url,state | jq
+  - comment: ""
+
+  - pause
+  - text: >-
+      nono run -s --no-audit --allow-cwd --profile "$GH_PROFILE" -- gh api repos/always-further/nono/issues/1052 | jq .title
+  - comment: ""
+
+  - pause
+  - text: >-
+      nono run -s --no-audit --no-diagnostics --allow-cwd --profile "$GH_PROFILE" -- gh issue comment 1052 --repo always-further/nono --body 'nono arg deny test'
+  - comment: ""
+
+  - pause
+  - text: >-
+      nono run -s --no-audit --no-diagnostics --allow-cwd --profile "$GH_PROFILE" -- gh api -X POST repos/always-further/nono/issues/1052/comments -f body='nono L7 deny test'
+  - comment: ""
+
+  - pause
+  - text: >-
+      nono run -s --no-audit --no-diagnostics --allow-cwd --profile "$GH_PROFILE" -- sh -c 'gh issue comment 1052 --repo always-further/nono --body "wrapped bypass attempt"'
+  - comment: ""
+
+  - pause
+  - text: >-
+      kill "$NONO_GH_APPROVAL_PID" 2>/dev/null || true
+  - comment: ""
