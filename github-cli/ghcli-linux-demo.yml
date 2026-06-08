@@ -6,8 +6,6 @@ show_exit_status: false
 setup:
   - export GH_PROFILE=./ghcli-profile-linux.json
   - export GH_TOKEN="$(gh auth token)"
-  - python3 -u approval-webhook-demo.py --allowed-command gh --allowed-caller session --allowed-endpoint-route github-api --allowed-args-prefix auth token --default-decision grant > /tmp/nono-gh-approval.log 2>&1 &
-  - export NONO_GH_APPROVAL_PID=$!
 
 steps:
   - pause
@@ -58,9 +56,4 @@ steps:
   - pause
   - text: >-
       nono run -s --no-audit --no-diagnostics --allow-cwd --profile "$GH_PROFILE" -- sh -c 'gh issue comment 1052 --repo always-further/nono --body "wrapped bypass attempt"'
-  - comment: ""
-
-  - pause
-  - text: >-
-      kill "$NONO_GH_APPROVAL_PID" 2>/dev/null || true
   - comment: ""

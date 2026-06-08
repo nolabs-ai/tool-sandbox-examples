@@ -10,7 +10,7 @@ credentials outside the sandboxed child processes.
 ## Contents
 
 ```text
-approval-webhook-demo.py       shared local approval webhook
+approval-webhook-demo.py       shared local approval webhook used by both demos
 github-cli/                    GitHub CLI credential and policy demo
 kubernetes/                    kubectl credential and policy demo
 ```

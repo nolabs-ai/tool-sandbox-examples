@@ -97,7 +97,8 @@ keyring.
 
 ## Approval Backend
 
-The profiles use `approval-webhook-demo.py` as a local approval backend at:
+The profiles use the package root `approval-webhook-demo.py` as a local
+approval backend at:
 
 ```text
 http://127.0.0.1:8765/approve
@@ -106,7 +107,7 @@ http://127.0.0.1:8765/approve
 Start it in a second terminal from this directory:
 
 ```bash
-python3 approval-webhook-demo.py \
+python3 ../approval-webhook-demo.py \
   --allowed-command gh \
   --allowed-caller session \
   --allowed-endpoint-route github-api \
@@ -152,7 +153,7 @@ Start the approval backend in a second terminal before running commands that
 use approval rules:
 
 ```bash
-python3 approval-webhook-demo.py \
+python3 ../approval-webhook-demo.py \
   --allowed-command gh \
   --allowed-caller session \
   --allowed-endpoint-route github-api \
@@ -188,7 +189,7 @@ Start the approval backend in a second terminal before running commands that
 use approval rules:
 
 ```bash
-python3 approval-webhook-demo.py \
+python3 ../approval-webhook-demo.py \
   --allowed-command gh \
   --allowed-caller session \
   --allowed-endpoint-route github-api \
