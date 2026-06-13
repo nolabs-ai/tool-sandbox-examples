@@ -299,15 +299,11 @@ def main() -> None:
     args_prefix_display = (
         " | ".join(" ".join(p) for p in allowed_args_prefixes)
         if allowed_args_prefixes
-        else "*"
+        else "any (--allow-any-args)"
     )
-    rows = [
-        ("url", url),
-        ("command", " ".join(args.allowed_command)),
-        ("caller", args.allowed_caller),
-        ("endpoint route", args.allowed_endpoint_route),
-        ("args prefix", args_prefix_display),
-    ]
+    route_display = (
+        "any route" if args.allowed_endpoint_route == "*" else args.allowed_endpoint_route
+    )
 
     title = "nono approval webhook"
     width = 52
@@ -315,9 +311,19 @@ def main() -> None:
     print(f"  {MAGENTA}{BOLD}╭{'─' * width}╮{RESET}")
     print(f"  {MAGENTA}{BOLD}│{RESET} 🔐 {BOLD}{title}{RESET}{' ' * (width - len(title) - 5)}{MAGENTA}{BOLD}│{RESET}")
     print(f"  {MAGENTA}{BOLD}╰{'─' * width}╯{RESET}")
-    for label, value in rows:
-        print(f"    {CYAN}{label:<15}{RESET}{value}")
+    print(f"    {CYAN}{'url':<15}{RESET}{url}")
     print(f"    {CYAN}{'default':<15}{RESET}{mode_color}{BOLD}{mode}{RESET}")
+    print()
+    print(f"  {BOLD}this server approves two kinds of requests:{RESET}")
+    print()
+    print(f"  ⚙  {BOLD}command approvals{RESET} {DIM}— granted only when all match{RESET}")
+    print(f"    {CYAN}{'command':<15}{RESET}{' '.join(args.allowed_command)}")
+    print(f"    {CYAN}{'caller':<15}{RESET}{args.allowed_caller}")
+    print(f"    {CYAN}{'args prefix':<15}{RESET}{args_prefix_display}")
+    print()
+    print(f"  🌐 {BOLD}endpoint approvals{RESET} {DIM}— granted on route match alone{RESET}")
+    print(f"    {CYAN}{'route':<15}{RESET}{route_display}")
+    print(f"    {CYAN}{'method/path':<15}{RESET}{DIM}not checked — decided by the nono profile{RESET}")
     print()
     print(f"  {GREEN}●{RESET} {DIM}listening — waiting for approval requests… {RESET}{GREY}(Ctrl-C to stop){RESET}")
     try:

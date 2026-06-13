@@ -10,7 +10,7 @@ credential upstream to `https://api.github.com`.
 - `gh issue view` and `gh issue list` are allowed.
 - `gh api` reads are allowed only when the L7 endpoint policy allows the API
   path.
-- selected command and endpoint operations can require local terminal approval.
+- selected command and endpoint operations can require local approval.
 - issue comments, issue creation, issue closure, release upload, and destructive
   API calls are denied.
 - wrapped attempts such as `sh -c 'gh issue comment ...'` are denied because
@@ -96,18 +96,31 @@ keyring.
 
 ## Local Approval Policy
 
-The profiles use nono's built-in terminal approval backend:
+The macOS profile uses the shared Python approval webhook:
 
 ```json
 "approval_backends": {
-  "local-policy": {
-    "type": "terminal",
+  "local-webhook": {
+    "type": "webhook",
+    "url": "http://127.0.0.1:8765/approve",
     "timeout_secs": 5
   }
 }
 ```
 
-This asks for local approval in two demo cases:
+Start it from this directory before running macOS approval demos:
+
+```bash
+python3 ../approval-webhook-demo.py \
+  --allowed-command gh \
+  --allowed-caller session \
+  --allowed-endpoint-route github-api \
+  --allowed-args-prefix auth token \
+  --default-decision grant
+```
+
+The Linux profile still uses nono's built-in terminal approval backend. Both
+profiles ask for local approval in two demo cases:
 
 - command approval for `gh auth token`
 - endpoint approval for `GET /rate_limit` on the `github-api` route

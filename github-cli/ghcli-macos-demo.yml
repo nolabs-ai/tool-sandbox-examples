@@ -11,7 +11,7 @@ steps:
   - text: >-
       jq '{approval_backends: .command_policies.approval_backends, credential: .command_policies.credentials["github-api"].credential_key}' "$GH_PROFILE"
     comment: >-
-      Show the local approval backend and credential source. Expected: approval uses the built-in terminal backend named local-policy, while the real GitHub token is loaded from the OS keyring.
+      Show the local approval backend and credential source. Expected: approval uses the Python webhook backend named local-webhook, while the real GitHub token is loaded from the OS keyring.
 
   - pause
   - text: >-

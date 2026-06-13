@@ -207,6 +207,7 @@ cd "$DEMO_DIR"
 
 python3 ../approval-webhook-demo.py \
   --allowed-command kubectl \
+  --allowed-caller session \
   --allowed-endpoint-route kubernetes-api-staging \
   --allowed-args-prefix config \
   --allowed-args-prefix scale \

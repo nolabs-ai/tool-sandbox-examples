@@ -44,13 +44,14 @@
   },
   "command_policies": {
     "approval_backends": {
-      "local-policy": {
-        "type": "terminal",
+      "local-webhook": {
+        "type": "webhook",
+        "url": "http://127.0.0.1:8765/approve",
         "timeout_secs": 5
       }
     },
     "approval_defaults": {
-      "backend": "local-policy",
+      "backend": "local-webhook",
       "timeout_secs": 5
     },
     "credentials": {
@@ -117,7 +118,7 @@
                       {
                         "method": "GET",
                         "path": "/rate_limit",
-                        "backend": "local-policy",
+                        "backend": "local-webhook",
                         "reason": "GitHub rate-limit inspection requires approval in this demo"
                       }
                     ],
@@ -268,7 +269,7 @@
                       "token"
                     ]
                   },
-                  "backend": "local-policy",
+                  "backend": "local-webhook",
                   "reason": "GitHub phantom-token inspection requires approval in this demo"
                 }
               ],
