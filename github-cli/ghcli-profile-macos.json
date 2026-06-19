@@ -67,7 +67,7 @@
     "commands": {
       "gh": {
         "executable": "/opt/homebrew/bin/gh",
-        "allow_writable_executable": true,
+        "allow_writable_executable": false,
         "from": {
           "session": {
             "sandbox": {
