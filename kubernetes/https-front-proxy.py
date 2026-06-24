@@ -2,7 +2,9 @@
 import argparse
 import http.client
 import http.server
+import json
 import os
+import socket
 import ssl
 import subprocess
 import tempfile
@@ -51,8 +53,34 @@ class Bridge(http.server.BaseHTTPRequestHandler):
                     self.send_header(key, value)
             self.end_headers()
             self.wfile.write(data)
+        except (ConnectionRefusedError, TimeoutError, socket.timeout, OSError, http.client.HTTPException) as exc:
+            self._send_proxy_error(exc)
         finally:
             conn.close()
+
+    def _send_proxy_error(self, exc):
+        target = f"http://{self.target_host}:{self.target_port}"
+        message = (
+            f"HTTPS front proxy could not reach nono proxy at {target}. "
+            "Start or restart the nono session with --proxy-port matching "
+            "this proxy's --target-port."
+        )
+        print(f"[https-front-proxy] upstream unavailable: {exc}", flush=True)
+        payload = {
+            "kind": "Status",
+            "apiVersion": "v1",
+            "metadata": {},
+            "status": "Failure",
+            "message": message,
+            "reason": "ServiceUnavailable",
+            "code": 503,
+        }
+        data = json.dumps(payload).encode("utf-8")
+        self.send_response(503, "Service Unavailable")
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def log_message(self, fmt, *args):
         print(f"[https-front-proxy] {self.address_string()} {fmt % args}", flush=True)

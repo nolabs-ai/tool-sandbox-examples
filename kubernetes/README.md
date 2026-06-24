@@ -61,12 +61,26 @@ Install or build:
 kubectl version --client
 nono --version
 python3 --version
+python3 -c 'import yaml'
 ```
 
-Set paths for your machine:
+If `python3 -c 'import yaml'` fails, install PyYAML in the Python environment
+you will use for `approval-webhook-demo.py`.
+
+If you use the local kind path below, also install `kind` and make sure Docker
+or another kind-supported container runtime is running:
+
+```bash
+kind version
+```
+
+From this directory, set paths for your machine. `DEMO_DIR` is this Kubernetes
+package directory; `APPROVAL_DEMO_DIR` is the sibling directory that contains
+the local approval dashboard and its config:
 
 ```bash
 export DEMO_DIR="$(pwd)"
+export APPROVAL_DEMO_DIR="$(cd ../../demo-approval && pwd)"
 export KUBECONFIG_STAGING="$HOME/.kube/staging.yaml"
 ```
 
@@ -83,11 +97,19 @@ demo checkout; those files contain path and port wiring that must stay together.
 This directory should contain:
 
 ```text
-demo-reader-rbac.yaml
+demo-agent-rbac.yaml
+demo-workload.yaml
 https-front-proxy.py
 make-proxy-kubeconfig.py
 nono-kube-token-helper
 staging-admin.json
+```
+
+The approval demo directory should contain:
+
+```text
+approval-webhook-demo.py
+k8s-staging.yaml
 ```
 
 ## 1. Prepare a Staging Kubeconfig
@@ -141,12 +163,16 @@ This generated kubeconfig sends `kubectl` to the local HTTPS front proxy at
 `https://127.0.0.1:18766/kubernetes-api-staging`. The front proxy forwards to
 the nono proxy at `http://127.0.0.1:18765/kubernetes-api-staging`.
 
-## 3. Create the Read-Only Demo Identity
+## 3. Create the Demo Identity and Workload
 
-Create the demo ServiceAccount and bind read-only cluster permissions:
+Create the demo ServiceAccount, bind read/operate permissions, and create the
+workload that Claude can inspect, restart, and scale:
 
 ```bash
-kubectl --kubeconfig "$KUBECONFIG_STAGING" apply -f demo-reader-rbac.yaml
+kubectl --kubeconfig "$KUBECONFIG_STAGING" apply -f demo-agent-rbac.yaml
+kubectl --kubeconfig "$KUBECONFIG_STAGING" apply -f demo-workload.yaml
+kubectl --kubeconfig "$KUBECONFIG_STAGING" \
+  -n nono-demo-system rollout status deployment/nono-demo-web
 ```
 
 Export a short-lived ServiceAccount token for the proxy to use:
@@ -154,7 +180,7 @@ Export a short-lived ServiceAccount token for the proxy to use:
 ```bash
 export NONO_DEMO_KUBERNETES_BEARER_TOKEN="$(
   kubectl --kubeconfig "$KUBECONFIG_STAGING" \
-    -n nono-demo-system create token nono-demo-reader
+    -n nono-demo-system create token nono-demo-agent
 )"
 ```
 
@@ -163,6 +189,10 @@ Check that the token was set without printing it:
 ```bash
 test -n "$NONO_DEMO_KUBERNETES_BEARER_TOKEN" && echo "token set"
 ```
+
+Keep this shell for commands that run `nono`, or repeat the token export in the
+terminal where you start the Claude session. The proxy reads
+`NONO_DEMO_KUBERNETES_BEARER_TOKEN` from the `nono run` environment.
 
 ## 4. Validate the Profile
 
@@ -200,22 +230,18 @@ Expected validation warnings:
 
 ## 5. Start the Approval Backend
 
-In a second terminal, run the approval webhook from the package root:
+In a second terminal, run the approval webhook from the approval demo directory:
 
 ```bash
-cd "$DEMO_DIR"
+cd "$APPROVAL_DEMO_DIR"
 
-python3 ../approval-webhook-demo.py \
-  --allowed-command kubectl \
-  --allowed-caller session \
-  --allowed-endpoint-route kubernetes-api-staging \
-  --allowed-args-prefix config \
-  --allowed-args-prefix scale \
-  --allowed-args-prefix rollout restart \
-  --default-decision grant
+python3 approval-webhook-demo.py \
+  --timeout 30 \
+  --config k8s-staging.yaml
 ```
 
-Keep this running while you run the demo commands.
+Keep this running while you run the demo commands. The dashboard is at
+`http://127.0.0.1:8765/`.
 
 ## 6. Start the HTTPS Front Proxy
 
@@ -235,7 +261,44 @@ Keep this running while you run the demo commands. `kubectl` sends its exec
 credential to this HTTPS local endpoint; the front proxy forwards that request
 to the nono proxy route.
 
-## 7. Run Allowed Commands
+## 7. Start the Claude Code Demo Session
+
+In the terminal where `NONO_DEMO_KUBERNETES_BEARER_TOKEN` is set, run:
+
+```bash
+cd "$DEMO_DIR"
+
+nono run \
+  --profile ./staging-admin.json \
+  --proxy-port 18765 \
+  --allow-cwd \
+  -- claude --dangerously-skip-permission
+```
+
+Keep the approval webhook and HTTPS front proxy running in their own terminals.
+The Claude process is intentionally started with its own permission prompts
+disabled; nono is the control plane for command allow, browser approval, and
+hard deny.
+
+Use these prompts for the live demo:
+
+```text
+Check the staging Kubernetes cluster health. List namespaces, pods, and deployments, then summarize anything unusual.
+```
+
+```text
+Restart the nono-demo-web deployment in nono-demo-system.
+```
+
+```text
+Scale nono-demo-web in nono-demo-system to 50 replicas.
+```
+
+```text
+Delete the nono-demo-system namespace and recreate it.
+```
+
+## 8. Run Direct Smoke Tests
 
 These commands start the nono proxy themselves through `--proxy-port 18765`.
 Keep both the approval webhook and HTTPS front proxy running.
@@ -270,7 +333,7 @@ nono run --no-audit --silent --allow-cwd \
   -- kubectl get pods -n nono-demo-system
 ```
 
-## 8. Run Approval Checks
+## 9. Run Approval Checks
 
 Command approval through the webhook:
 
@@ -292,17 +355,16 @@ nono run --no-audit --silent --allow-cwd \
   --startup-timeout 8 \
   --proxy-port 18765 \
   --profile ./staging-admin.json \
-  -- kubectl scale deployment does-not-exist \
+  -- kubectl scale deployment/nono-demo-web \
     -n nono-demo-system \
-    --replicas=1
+    --replicas=3
 ```
 
 Expected: the approval webhook first grants the `kubectl scale ...` command,
-then grants a `PATCH /apis/apps/v1/namespaces/nono-demo-system/deployments/does-not-exist/scale`
-endpoint request. The read-only demo ServiceAccount should still prevent the
-actual mutation at the Kubernetes API layer.
+then grants a `PATCH /apis/apps/v1/namespaces/nono-demo-system/deployments/nono-demo-web/scale`
+endpoint request. After both approvals, Kubernetes updates the demo deployment.
 
-## 9. Run Denial Checks
+## 10. Run Denial Checks
 
 Invocation-policy denial before `kubectl` runs:
 
@@ -359,14 +421,34 @@ Stop the stale `nono` process, then rerun the command. The demo commands include
 `--startup-timeout 8` so command startup failures are reported instead of
 waiting indefinitely.
 
-`serviceaccounts "nono-demo-reader" not found`
+`HTTPS front proxy could not reach nono proxy`
+
+The HTTPS front proxy on `18766` is only a TLS shim. Its target must be a live
+nono proxy listening on `18765`. Start the Claude session or a smoke-test command
+with the same fixed proxy port:
+
+```bash
+nono run \
+  --profile ./staging-admin.json \
+  --proxy-port 18765 \
+  --allow-cwd \
+  -- claude --dangerously-skip-permission
+```
+
+Check whether the nono proxy is listening:
+
+```bash
+lsof -nP -iTCP:18765 -sTCP:LISTEN
+```
+
+`serviceaccounts "nono-demo-agent" not found`
 
 The ServiceAccount is created in `nono-demo-system`, not `demo-staging`. Create
 the token with:
 
 ```bash
 kubectl --kubeconfig "$KUBECONFIG_STAGING" \
-  -n nono-demo-system create token nono-demo-reader
+  -n nono-demo-system create token nono-demo-agent
 ```
 
 `nono-kube-token-helper` not found
@@ -415,7 +497,8 @@ in the terminal where you start `nono run`.
 Remove the demo RBAC:
 
 ```bash
-kubectl --kubeconfig "$KUBECONFIG_STAGING" delete -f demo-reader-rbac.yaml
+kubectl --kubeconfig "$KUBECONFIG_STAGING" delete -f demo-workload.yaml
+kubectl --kubeconfig "$KUBECONFIG_STAGING" delete -f demo-agent-rbac.yaml
 ```
 
 Remove the kind cluster, if you created one:

@@ -6,17 +6,6 @@
     "description": "Demo: kubectl is constrained to a staging kubeconfig, Kubernetes API L7 policy, bounded output, and non-destructive cluster administration commands."
   },
   "environment": {
-    "allow_vars": [
-      "PATH",
-      "HOME",
-      "TMPDIR",
-      "TERM",
-      "COLORTERM",
-      "TERM_PROGRAM",
-      "TERM_PROGRAM_VERSION",
-      "LANG",
-      "LC_*"
-    ],
     "deny_vars": [
       "AWS_*",
       "GITHUB_TOKEN",
@@ -33,25 +22,8 @@
     "deny": [
       "$HOME/.ssh"
     ],
-    "write": [
-      "~/.local/share/claude/versions",
-      "~/.local/bin"
-    ],
-    "read": [
-      "~/nono-gateway/.config/nono/packages/always-further/claude"
-    ],
     "suppress_save_prompt": [
-      "~/",
-      "~/Library/Application Support/Arc/User Data",
-      "~/Library/Application Support/BraveSoftware/Brave-Browser",
-      "~/Library/Application Support/Chromium",
-      "~/Library/Application Support/Google/Chrome",
-      "~/Library/Application Support/Microsoft Edge",
-      "~/Library/Application Support/Vivaldi",
-      "~/Library/Application Support/com.operasoftware.Opera",
-      "~/nono-gateway/.config/nono/packages/always-further/claude",
-      "~/.local/bin",
-      "~/dev/nono-workspace/tool-sandbox-package/.git"
+      "$HOME/.CFUserTextEncoding"
     ]
   },
   "command_policies": {
@@ -59,12 +31,12 @@
       "local-webhook": {
         "type": "webhook",
         "url": "http://127.0.0.1:8765/approve",
-        "timeout_secs": 35
+        "timeout_secs": 5
       }
     },
     "approval_defaults": {
       "backend": "local-webhook",
-      "timeout_secs": 35
+      "timeout_secs": 5
     },
     "credentials": {
       "kubernetes-api-staging": {
@@ -242,15 +214,6 @@
                   },
                   "backend": "local-webhook",
                   "reason": "rollout restart changes running workloads"
-                },
-                {
-                  "argv": {
-                    "prefix": [
-                      "scale"
-                    ]
-                  },
-                  "backend": "local-webhook",
-                  "reason": "scaling changes staging workload capacity"
                 }
               ],
               "allow": [
