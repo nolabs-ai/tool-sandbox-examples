@@ -1,61 +1,31 @@
 {
+  "extends": [
+    "nolabs-ai/claude"
+  ],
   "meta": {
     "name": "gh-issues-readonly-l7",
     "version": "0.1.0",
-    "description": "Showcase: GitHub CLI can read issues through TLS-intercepted L7 filtering, but issue mutations are denied."
+    "description": "Showcase: GitHub CLI reads issues through TLS-intercepted L7 filtering (plus rate-limit and phantom-token inspection), while issue mutations are denied. Policy-only enforcement, no approval backends."
   },
   "workdir": {
     "access": "read"
-  },
-  "filesystem": {
-    "read": [
-      ".",
-      "/opt/homebrew/Cellar/gh/2.89.0/bin"
-    ],
-    "read_file": [
-      "$HOME/.config/gh/hosts.yml",
-      "$HOME/.config/gh/config.yml",
-      "$HOME/.CFUserTextEncoding",
-      "/Library/Preferences/Logging/com.apple.diagnosticd.filter.plist",
-      "/dev/autofs_nowait",
-      "/dev/dtracehelper",
-      "/opt/homebrew/bin/gh"
-    ],
-    "write_file": [
-      "/dev/dtracehelper"
-    ],
-    "bypass_protection": [
-      "/Library/Preferences/Logging/com.apple.diagnosticd.filter.plist",
-      "/dev/autofs_nowait",
-      "/dev/dtracehelper",
-      "/opt/homebrew/Cellar/gh/2.89.0/bin",
-      "/opt/homebrew/bin/gh"
-    ],
-    "suppress_save_prompt": [
-      "$HOME/.CFUserTextEncoding"
-    ]
   },
   "network": {
     "tls_intercept": {
       "ca_lifecycle": "trusted",
       "ca_validity": "24h",
       "leaf_validity": "15m"
-    }
+    },
+    "allow_domain": [
+      "api.anthropic.com",
+      "claude.ai",
+      "console.anthropic.com",
+      "statsig.anthropic.com"
+    ]
   },
   "command_policies": {
-    "approval_backends": {
-      "local-webhook": {
-        "type": "webhook",
-        "url": "http://127.0.0.1:8765/approve",
-        "timeout_secs": 5
-      }
-    },
-    "approval_defaults": {
-      "backend": "local-webhook",
-      "timeout_secs": 5
-    },
     "credentials": {
-      "github-api": {
+      "github-keyring": {
         "type": "proxy",
         "upstream": "https://api.github.com",
         "credential_key": "keyring://gh:github.com/lukehinds?decode=go-keyring",
@@ -67,10 +37,66 @@
     "commands": {
       "gh": {
         "executable": "/opt/homebrew/bin/gh",
-        "allow_writable_executable": false,
         "from": {
           "session": {
             "sandbox": {
+              "credentials": [
+                {
+                  "name": "github-keyring",
+                  "endpoint_policy": {
+                    "default": "deny",
+                    "deny": [
+                      {
+                        "method": "POST",
+                        "path": "/user",
+                        "reason": "agents may authenticate to GitHub but not mutate the user resource"
+                      },
+                      {
+                        "method": "POST",
+                        "path": "/repos/nolabs-ai/nono/issues/**",
+                        "reason": "agents may read GitHub issues but not create or comment on them"
+                      },
+                      {
+                        "method": "PATCH",
+                        "path": "/repos/nolabs-ai/nono/issues/**",
+                        "reason": "agents may read GitHub issues but not modify issue state"
+                      },
+                      {
+                        "method": "DELETE",
+                        "path": "/**",
+                        "reason": "destructive GitHub API calls are denied"
+                      }
+                    ],
+                    "allow": [
+                      {
+                        "method": "GET",
+                        "path": "/rate_limit",
+                        "reason": "GitHub rate-limit inspection is permitted"
+                      },
+                      {
+                        "method": "GET",
+                        "path": "/user"
+                      },
+                      {
+                        "method": "GET",
+                        "path": "/repos/nolabs-ai/nono/issues"
+                      },
+                      {
+                        "method": "GET",
+                        "path": "/repos/nolabs-ai/nono/issues/*"
+                      },
+                      {
+                        "method": "GET",
+                        "path": "/repos/nolabs-ai/nono/issues/*/comments"
+                      },
+                      {
+                        "method": "POST",
+                        "path": "/graphql"
+                      }
+                    ]
+                  }
+                }
+              ],
               "fs_read": [
                 ".",
                 "/opt/homebrew/Cellar/gh/2.89.0/bin"
@@ -86,66 +112,6 @@
               ],
               "fs_write_file": [
                 "/dev/dtracehelper"
-              ],
-              "credentials": [
-                {
-                  "name": "github-api",
-                  "endpoint_policy": {
-                    "default": "deny",
-                    "deny": [
-                      {
-                        "method": "POST",
-                        "path": "/user",
-                        "reason": "agents may authenticate to GitHub but not mutate the user resource"
-                      },
-                      {
-                        "method": "POST",
-                        "path": "/repos/always-further/nono/issues/**",
-                        "reason": "agents may read GitHub issues but not create or comment on them"
-                      },
-                      {
-                        "method": "PATCH",
-                        "path": "/repos/always-further/nono/issues/**",
-                        "reason": "agents may read GitHub issues but not modify issue state"
-                      },
-                      {
-                        "method": "DELETE",
-                        "path": "/**",
-                        "reason": "destructive GitHub API calls are denied"
-                      }
-                    ],
-                    "approve": [
-                      {
-                        "method": "GET",
-                        "path": "/rate_limit",
-                        "backend": "local-webhook",
-                        "reason": "GitHub rate-limit inspection requires approval in this demo"
-                      }
-                    ],
-                    "allow": [
-                      {
-                        "method": "GET",
-                        "path": "/user"
-                      },
-                      {
-                        "method": "GET",
-                        "path": "/repos/always-further/nono/issues"
-                      },
-                      {
-                        "method": "GET",
-                        "path": "/repos/always-further/nono/issues/*"
-                      },
-                      {
-                        "method": "GET",
-                        "path": "/repos/always-further/nono/issues/*/comments"
-                      },
-                      {
-                        "method": "POST",
-                        "path": "/graphql"
-                      }
-                    ]
-                  }
-                }
               ],
               "environment": {
                 "allow_vars": [
@@ -261,7 +227,7 @@
                   "reason": "agents may read issues, but not upload release artifacts!"
                 }
               ],
-              "approve": [
+              "allow": [
                 {
                   "argv": {
                     "exact": [
@@ -269,11 +235,8 @@
                       "token"
                     ]
                   },
-                  "backend": "local-webhook",
-                  "reason": "GitHub phantom-token inspection requires approval in this demo"
-                }
-              ],
-              "allow": [
+                  "reason": "GitHub phantom-token inspection is permitted"
+                },
                 {
                   "argv": {
                     "prefix": [
@@ -306,5 +269,36 @@
         }
       }
     }
+  },
+  "unsafe_macos_seatbelt_rules": [
+    "(allow user-preference-read)"
+  ],
+  "filesystem": {
+    "read": [
+      ".",
+      "/opt/homebrew/Cellar/gh/2.89.0/bin"
+    ],
+    "read_file": [
+      "$HOME/.config/gh/hosts.yml",
+      "$HOME/.config/gh/config.yml",
+      "$HOME/.CFUserTextEncoding",
+      "/Library/Preferences/Logging/com.apple.diagnosticd.filter.plist",
+      "/dev/autofs_nowait",
+      "/dev/dtracehelper",
+      "/opt/homebrew/bin/gh"
+    ],
+    "write_file": [
+      "/dev/dtracehelper"
+    ],
+    "bypass_protection": [
+      "/Library/Preferences/Logging/com.apple.diagnosticd.filter.plist",
+      "/dev/autofs_nowait",
+      "/dev/dtracehelper",
+      "/opt/homebrew/Cellar/gh/2.89.0/bin",
+      "/opt/homebrew/bin/gh"
+    ],
+    "suppress_save_prompt": [
+      "$HOME/.CFUserTextEncoding"
+    ]
   }
 }

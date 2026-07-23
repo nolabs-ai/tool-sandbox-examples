@@ -268,11 +268,11 @@ In the terminal where `NONO_DEMO_KUBERNETES_BEARER_TOKEN` is set, run:
 ```bash
 cd "$DEMO_DIR"
 
-nono run \
+nono run  --silent \
   --profile ./staging-admin.json \
   --proxy-port 18765 \
   --allow-cwd \
-  -- claude --dangerously-skip-permission
+  -- claude --dangerously-skip-permissions
 ```
 
 Keep the approval webhook and HTTPS front proxy running in their own terminals.
@@ -432,7 +432,7 @@ nono run \
   --profile ./staging-admin.json \
   --proxy-port 18765 \
   --allow-cwd \
-  -- claude --dangerously-skip-permission
+  -- claude --dangerously-skip-permissions
 ```
 
 Check whether the nono proxy is listening:
