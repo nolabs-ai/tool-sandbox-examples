@@ -145,12 +145,6 @@ steps:
   # so Claude Code runs under it and every gh call it makes is mediated.
   # ------------------------------------------------------------------
   - pause
-  - comment: "Pull down the nono claude profile"
-    style: blue
-  - text: >-
-      nono pull nolabs-ai/claude --force
-
-  - pause
   - comment: "This profile extends the Claude Code profile, so the agent inherits the same gh policy."
     style: blue
   - text: >-
