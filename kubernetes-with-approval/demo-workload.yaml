@@ -5,7 +5,7 @@ metadata:
   namespace: nono-demo-system
   labels:
     app.kubernetes.io/name: nono-demo-web
-    app.kubernetes.io/part-of: nono-demo
+    app.kubernetes.io/part-of: nono-approval-demo
 spec:
   replicas: 2
   selector:
@@ -15,7 +15,7 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: nono-demo-web
-        app.kubernetes.io/part-of: nono-demo
+        app.kubernetes.io/part-of: nono-approval-demo
     spec:
       containers:
         - name: web
@@ -47,7 +47,7 @@ metadata:
   namespace: nono-demo-system
   labels:
     app.kubernetes.io/name: nono-demo-web
-    app.kubernetes.io/part-of: nono-demo
+    app.kubernetes.io/part-of: nono-approval-demo
 spec:
   type: ClusterIP
   selector:

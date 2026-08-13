@@ -40,11 +40,57 @@ the login shown by:
 gh api user --jq .login
 ```
 
-In the profile, that credential source lives here:
+In a profile, that credential source lives here:
 
 ```text
-command_policies.credentials.github-api.credential_key
+command_policies.credentials.<route-name>.credential_key
 ```
+
+### 1Password backend
+
+[`ghcli-profile-1password.json`](./ghcli-profile-1password.json) is the macOS
+variant that loads the GitHub token from 1Password instead of the OS keyring.
+It uses this example reference:
+
+```text
+op://Development/GitHub CLI Token/password
+```
+
+The `op` CLI must be installed, signed in, and able to resolve that reference.
+To seed the example from an existing `gh` login, this pipeline creates a
+Password item in the `Development` vault without placing the token in command
+arguments or a temporary file (omit `--vault` to choose interactively):
+
+```bash
+gh auth token \
+  | jq -Rs '{
+      title: "GitHub CLI Token",
+      category: "PASSWORD",
+      fields: [{
+        id: "password",
+        type: "CONCEALED",
+        purpose: "PASSWORD",
+        label: "password",
+        value: sub("\\n$"; "")
+      }]
+    }' \
+  | op item create --vault=Development -
+```
+
+If your vault, item, or field names differ, change
+`command_policies.credentials.github-1password.credential_key` in the profile.
+You can verify the reference without displaying the token:
+
+```bash
+op read 'op://Development/GitHub CLI Token/password' >/dev/null \
+  && echo '1Password credential is available'
+```
+
+The 1Password CLI runs before the sandbox is applied. The real token is held by
+the proxy; sandboxed `gh` receives a short-lived phantom `GH_TOKEN`, and the
+proxy substitutes the real token only for requests allowed by the endpoint
+policy. The profile does not grant the child process access to `op` or the
+1Password vault.
 
 For headless Linux environments, dev containers, or CI where no Secret Service
 keyring is available, use the environment fallback:
@@ -59,8 +105,9 @@ and export the real token in the parent shell:
 export GH_TOKEN="$(gh auth token)"
 ```
 
-Both models preserve the same sandbox behavior: the parent nono process loads
-the real token, and sandboxed `gh` receives only the phantom `GH_TOKEN`.
+All credential-source variants preserve the same sandbox behavior: the parent
+nono process loads the real token, and sandboxed `gh` receives only the phantom
+`GH_TOKEN`.
 
 ## Linux Keyring Notes
 
@@ -135,6 +182,7 @@ Use the platform profile directly from this directory:
 ```bash
 nono profile validate ./ghcli-profile-macos.json
 nono profile validate ./ghcli-profile-linux.json
+nono profile validate ./ghcli-profile-1password.json
 ```
 
 The macOS profile uses Homebrew paths for `gh`. The Linux profile uses
@@ -162,6 +210,9 @@ demonator -c ghcli-macos-demo.yml
 
 # Linux
 demonator -c ghcli-linux-demo.yml
+
+# macOS with 1Password
+demonator -c ghcli-1password-demo.yml
 ```
 
 The Linux scripted demo exports `GH_TOKEN="$(gh auth token)"` for the

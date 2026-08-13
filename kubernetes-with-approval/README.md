@@ -9,8 +9,7 @@ before injecting the real Kubernetes bearer token upstream.
 ## What This Shows
 
 - `kubectl get`, `kubectl describe`, and `kubectl version --client` are allowed.
-- `kubectl rollout restart` and `kubectl scale` are allowed for workload
-  management; other `kubectl` operations are denied by policy.
+- Other `kubectl` operations go through a local approval webhook.
 - `kubectl delete namespace`, `kubectl delete namespaces`, and `kubectl delete ns`
   are denied before the real command runs.
 - Kubernetes API read endpoints are allowed by L7 endpoint policy.
@@ -66,7 +65,7 @@ python3 -c 'import yaml'
 ```
 
 If `python3 -c 'import yaml'` fails, install PyYAML in the Python environment
-you will use for `make-proxy-kubeconfig.py`.
+you will use for `approval-webhook-demo.py`.
 
 If you use the local kind path below, also install `kind` and make sure Docker
 or another kind-supported container runtime is running:
@@ -76,10 +75,12 @@ kind version
 ```
 
 From this directory, set paths for your machine. `DEMO_DIR` is this Kubernetes
-package directory:
+package directory; `APPROVAL_DEMO_DIR` is the sibling directory that contains
+the local approval dashboard and its config:
 
 ```bash
 export DEMO_DIR="$(pwd)"
+export APPROVAL_DEMO_DIR="$(cd ../../demo-approval && pwd)"
 export KUBECONFIG_STAGING="$HOME/.kube/staging.yaml"
 ```
 
@@ -102,6 +103,13 @@ https-front-proxy.py
 make-proxy-kubeconfig.py
 nono-kube-token-helper
 staging-admin.json
+```
+
+The approval demo directory should contain:
+
+```text
+approval-webhook-demo.py
+k8s-staging.yaml
 ```
 
 ## 1. Prepare a Staging Kubeconfig
@@ -220,9 +228,24 @@ Expected validation warnings:
   stricter profile, install the helper somewhere immutable and update
   `command_policies.commands.nono-kube-token-helper.executable`.
 
-## 5. Start the HTTPS Front Proxy
+## 5. Start the Approval Backend
 
-In a second terminal, run:
+In a second terminal, run the approval webhook from the approval demo directory:
+
+```bash
+cd "$APPROVAL_DEMO_DIR"
+
+python3 approval-webhook-demo.py \
+  --timeout 30 \
+  --config k8s-staging.yaml
+```
+
+Keep this running while you run the demo commands. The dashboard is at
+`http://127.0.0.1:8765/`.
+
+## 6. Start the HTTPS Front Proxy
+
+In a third terminal, run:
 
 ```bash
 cd "$DEMO_DIR"
@@ -238,7 +261,7 @@ Keep this running while you run the demo commands. `kubectl` sends its exec
 credential to this HTTPS local endpoint; the front proxy forwards that request
 to the nono proxy route.
 
-## 6. Start the Claude Code Demo Session
+## 7. Start the Claude Code Demo Session
 
 In the terminal where `NONO_DEMO_KUBERNETES_BEARER_TOKEN` is set, run:
 
@@ -252,9 +275,10 @@ nono run  --silent \
   -- claude --dangerously-skip-permissions
 ```
 
-Keep the HTTPS front proxy running in its own terminal. The Claude process is
-intentionally started with its own permission prompts disabled; nono is the
-control plane for command allow and hard deny.
+Keep the approval webhook and HTTPS front proxy running in their own terminals.
+The Claude process is intentionally started with its own permission prompts
+disabled; nono is the control plane for command allow, browser approval, and
+hard deny.
 
 Use these prompts for the live demo:
 
@@ -274,10 +298,10 @@ Scale nono-demo-web in nono-demo-system to 50 replicas.
 Delete the nono-demo-system namespace and recreate it.
 ```
 
-## 7. Run Direct Smoke Tests
+## 8. Run Direct Smoke Tests
 
 These commands start the nono proxy themselves through `--proxy-port 18765`.
-Keep the HTTPS front proxy running.
+Keep both the approval webhook and HTTPS front proxy running.
 
 Client-only command:
 
@@ -309,9 +333,9 @@ nono run --no-audit --silent --allow-cwd \
   -- kubectl get pods -n nono-demo-system
 ```
 
-## 8. Run Workload-Management Checks
+## 9. Run Approval Checks
 
-Command policy allows the context check:
+Command approval through the webhook:
 
 ```bash
 nono run --no-audit --silent --allow-cwd \
@@ -321,9 +345,10 @@ nono run --no-audit --silent --allow-cwd \
   -- kubectl config current-context
 ```
 
-Expected: `kubectl` prints `nono-proxy`.
+Expected: the approval webhook logs a granted `command` request for `kubectl`
+with args starting `config`, then `kubectl` prints `nono-proxy`.
 
-Scaling is allowed by both command policy and endpoint policy:
+Endpoint approval through the webhook:
 
 ```bash
 nono run --no-audit --silent --allow-cwd \
@@ -335,11 +360,11 @@ nono run --no-audit --silent --allow-cwd \
     --replicas=3
 ```
 
-Expected: the `kubectl scale ...` command is allowed, the proxy permits the
-`PATCH /apis/apps/v1/namespaces/nono-demo-system/deployments/nono-demo-web/scale`
-endpoint request, and Kubernetes updates the demo deployment.
+Expected: the approval webhook first grants the `kubectl scale ...` command,
+then grants a `PATCH /apis/apps/v1/namespaces/nono-demo-system/deployments/nono-demo-web/scale`
+endpoint request. After both approvals, Kubernetes updates the demo deployment.
 
-## 9. Run Denial Checks
+## 10. Run Denial Checks
 
 Invocation-policy denial before `kubectl` runs:
 

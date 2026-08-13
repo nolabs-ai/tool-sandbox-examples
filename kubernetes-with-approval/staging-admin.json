@@ -1,9 +1,9 @@
 {
-  "extends": "nolabs-ai/claude",
+  "extends": "always-further/claude",
   "meta": {
     "name": "demo-kubectl-staging-admin",
     "version": "1.0.0",
-    "description": "Demo: kubectl is constrained to a staging kubeconfig, Kubernetes API L7 policy, bounded output, and non-destructive cluster administration commands. Policy-only enforcement, no approval backends."
+    "description": "Demo: kubectl is constrained to a staging kubeconfig, Kubernetes API L7 policy, bounded output, and non-destructive cluster administration commands."
   },
   "environment": {
     "allow_vars": [
@@ -55,6 +55,17 @@
     ]
   },
   "command_policies": {
+    "approval_backends": {
+      "local-webhook": {
+        "type": "webhook",
+        "url": "http://127.0.0.1:8765/approve",
+        "timeout_secs": 35
+      }
+    },
+    "approval_defaults": {
+      "backend": "local-webhook",
+      "timeout_secs": 35
+    },
     "credentials": {
       "kubernetes-api-staging": {
         "type": "proxy",
@@ -92,7 +103,7 @@
                 {
                   "name": "kubernetes-api-staging",
                   "endpoint_policy": {
-                    "default": "deny",
+                    "default": "approve",
                     "deny": [
                       {
                         "method": "DELETE",
@@ -105,17 +116,21 @@
                         "reason": "destructive Kubernetes API calls require a separate break-glass profile"
                       }
                     ],
-                    "allow": [
+                    "approve": [
                       {
                         "method": "PATCH",
                         "path": "/apis/apps/v1/namespaces/*/deployments/*",
-                        "reason": "deployment mutation is permitted in the staging admin profile"
+                        "backend": "local-webhook",
+                        "reason": "deployment mutation changes running workloads"
                       },
                       {
                         "method": "PATCH",
                         "path": "/apis/apps/v1/namespaces/*/deployments/*/scale",
-                        "reason": "deployment scaling is permitted in the staging admin profile"
-                      },
+                        "backend": "local-webhook",
+                        "reason": "scaling changes running workload capacity"
+                      }
+                    ],
+                    "allow": [
                       {
                         "method": "GET",
                         "path": "/version"
@@ -187,7 +202,7 @@
               }
             },
             "invocation_policy": {
-              "default": "deny",
+              "default": "approve",
               "deny": [
                 {
                   "argv": {
@@ -217,7 +232,7 @@
                   "reason": "kubectl delete ns is blocked in the staging admin profile"
                 }
               ],
-              "allow": [
+              "approve": [
                 {
                   "argv": {
                     "prefix": [
@@ -225,15 +240,8 @@
                       "restart"
                     ]
                   },
-                  "reason": "rollout restart is permitted in the staging admin profile"
-                },
-                {
-                  "argv": {
-                    "prefix": [
-                      "rollout",
-                      "status"
-                    ]
-                  }
+                  "backend": "local-webhook",
+                  "reason": "rollout restart changes running workloads"
                 },
                 {
                   "argv": {
@@ -241,8 +249,11 @@
                       "scale"
                     ]
                   },
-                  "reason": "scaling is permitted in the staging admin profile"
-                },
+                  "backend": "local-webhook",
+                  "reason": "scaling changes staging workload capacity"
+                }
+              ],
+              "allow": [
                 {
                   "argv": {
                     "prefix": [
@@ -254,14 +265,6 @@
                   "argv": {
                     "prefix": [
                       "describe"
-                    ]
-                  }
-                },
-                {
-                  "argv": {
-                    "exact": [
-                      "config",
-                      "current-context"
                     ]
                   }
                 },
